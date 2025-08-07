@@ -1,0 +1,161 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: automated-pod-quarantine
+  labels:
+    app: security-automation
+    component: quarantine
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  schedule: "*/5 * * * *"  # Run every 5 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: security-automation
+            component: quarantine
+            security.zero-day/component: "quarantine"
+        spec:
+          serviceAccountName: pod-quarantine-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 2000
+          containers:
+          - name: quarantine-scanner
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+              requests:
+                cpu: "200m"
+                memory: "256Mi"
+            command:
+            - /bin/bash
+            - -c
+            args:
+            - |
+              # Initialize metrics
+              echo "# HELP quarantine_actions_total Total number of quarantine actions taken"
+              echo "# TYPE quarantine_actions_total counter"
+              echo "# HELP quarantine_success_total Successfully quarantined pods"
+              echo "# TYPE quarantine_success_total counter"
+              echo "# HELP quarantine_reasons_total Reasons for quarantine actions"
+              echo "# TYPE quarantine_reasons_total counter"
+              echo "# HELP quarantine_failure_total Failed quarantine attempts"
+              echo "# TYPE quarantine_failure_total counter"
+              echo "# HELP pod_vulnerability_score Current vulnerability score of pods"
+              echo "# TYPE pod_vulnerability_score gauge"
+              
+              # Scan for potentially compromised pods with enhanced detection
+              SUSPICIOUS_PODS=$(kubectl get pods --all-namespaces -o json | jq -r '.items[] | 
+                select(
+                  .metadata.labels."security-scan" != "cleared" or 
+                  .status.containerStatuses[].restartCount > 5 or 
+                  .metadata.labels."quarantine-status" == "pending" or
+                  .status.containerStatuses[].state.waiting.reason == "CrashLoopBackOff" or
+                  .status.containerStatuses[].lastState.terminated.reason == "OOMKilled" or
+                  (.metadata.labels."security.zero-day/risk-level" // "unknown") == "high"
+                ) |
+                .metadata.name + " " + .metadata.namespace')
+
+              # Function to calculate vulnerability score
+              calculate_vulnerability_score() {
+                local pod=$1
+                local namespace=$2
+                local score=0
+                
+                # Check for privileged containers
+                if kubectl get pod $pod -n $namespace -o json | jq -e '.spec.containers[].securityContext.privileged == true' >/dev/null; then
+                  score=$((score + 30))
+                fi
+                
+                # Check for host mounts
+                if kubectl get pod $pod -n $namespace -o json | jq -e '.spec.volumes[].hostPath' >/dev/null; then
+                  score=$((score + 20))
+                fi
+                
+                # Check for excessive permissions
+                if kubectl get pod $pod -n $namespace -o json | jq -e '.spec.containers[].securityContext.capabilities.add' >/dev/null; then
+                  score=$((score + 15))
+                fi
+                
+                echo $score
+              }
+
+              if [ -n "$SUSPICIOUS_PODS" ]; then
+                echo "Found suspicious pods: $SUSPICIOUS_PODS"
+                
+                while read -r pod namespace; do
+                  echo "Quarantining pod: $pod in namespace: $namespace"
+                  
+                  # Calculate and record vulnerability score
+                  VULN_SCORE=$(calculate_vulnerability_score "$pod" "$namespace")
+                  echo "pod_vulnerability_score{pod=\"$pod\",namespace=\"$namespace\"} $VULN_SCORE"
+                  
+                  # Log the quarantine action
+                  echo "[$(date)] Quarantining pod: $pod in namespace: $namespace" >> /var/log/quarantine.log
+                  
+                  # Cordon the node where the pod is running
+                  NODE=$(kubectl get pod $pod -n $namespace -o jsonpath='{.spec.nodeName}')
+                  kubectl cordon $NODE
+                  
+                  # Apply quarantine label
+                  kubectl label pod $pod -n $namespace quarantine-status=active
+                  
+                  # Create network policy to isolate the pod
+                  cat <<EOF | kubectl apply -f -
+                  apiVersion: networking.k8s.io/v1
+                  kind: NetworkPolicy
+                  metadata:
+                    name: quarantine-$pod
+                    namespace: $namespace
+                  spec:
+                    podSelector:
+                      matchLabels:
+                        quarantine-status: active
+                    policyTypes:
+                    - Ingress
+                    - Egress
+                  EOF
+                  
+                  # Take pod snapshot for forensics
+                  kubectl get pod $pod -n $namespace -o yaml > /var/log/forensics/${pod}_${namespace}_$(date +%s).yaml
+                  
+                  # Delete the pod
+                  kubectl delete pod $pod -n $namespace
+                  
+                  # Uncordon the node after pod deletion
+                  kubectl uncordon $NODE
+                  
+                done <<< "$SUSPICIOUS_PODS"
+              else
+                echo "No suspicious pods found in this scan."
+              fi
+            volumeMounts:
+            - name: forensics-volume
+              mountPath: /var/log/forensics
+            - name: quarantine-logs
+              mountPath: /var/log
+          volumes:
+          - name: forensics-volume
+            persistentVolumeClaim:
+              claimName: forensics-pvc
+          - name: quarantine-logs
+            persistentVolumeClaim:
+              claimName: quarantine-logs-pvc
+          restartPolicy: OnFailure

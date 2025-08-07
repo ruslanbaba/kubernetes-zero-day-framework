@@ -1,0 +1,76 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-failure-chaos
+spec:
+  action: pod-failure
+  mode: one
+  selector:
+    labelSelectors:
+      'security-test': 'enabled'
+  duration: '30s'
+  scheduler:
+    cron: '@every 10m'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-partition-chaos
+spec:
+  action: partition
+  mode: one
+  selector:
+    labelSelectors:
+      'security-test': 'enabled'
+  direction: to
+  target:
+    selector:
+      labelSelectors:
+        'security-test': 'enabled'
+    mode: one
+  duration: '30s'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: io-delay-chaos
+spec:
+  action: latency
+  mode: one
+  selector:
+    labelSelectors:
+      'security-test': 'enabled'
+  volumePath: /
+  path: '*'
+  delay: '100ms'
+  percent: 50
+  duration: '30s'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cpu-stress-chaos
+spec:
+  mode: one
+  selector:
+    labelSelectors:
+      'security-test': 'enabled'
+  stressors:
+    cpu:
+      workers: 1
+      load: 50
+  duration: '30s'
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: dns-chaos
+spec:
+  action: error
+  mode: one
+  selector:
+    labelSelectors:
+      'security-test': 'enabled'
+  patterns:
+    - '*'
+  duration: '30s'

@@ -1,0 +1,10 @@
+{
+  "name": "block-cve-2023-1675",
+  "description": "Block CVE-2023-1675 exploit attempts",
+  "rules": [
+    {
+      "action": "deny(403)",
+      "expression": "request.headers[\"User-Agent\"].contains('exploit-cve-2023-1675')"
+    }
+  ]
+}

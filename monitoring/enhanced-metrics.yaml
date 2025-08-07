@@ -1,0 +1,54 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: quarantine-metrics
+  labels:
+    app: security-automation
+spec:
+  selector:
+    matchLabels:
+      app: security-automation
+      component: quarantine
+  endpoints:
+  - port: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: quarantine-metrics
+spec:
+  groups:
+  - name: quarantine.metrics
+    rules:
+    - record: quarantine_pod_total
+      expr: sum(kube_pod_labels{label_quarantine_status="active"})
+    
+    - record: quarantine_by_namespace
+      expr: sum by (namespace) (kube_pod_labels{label_quarantine_status="active"})
+    
+    - record: suspicious_pods_detection_rate
+      expr: rate(quarantine_actions_total[5m])
+    
+    - record: quarantine_success_rate
+      expr: sum(rate(quarantine_actions_success[5m])) / sum(rate(quarantine_actions_total[5m]))
+    
+    - record: forensics_capture_success_rate
+      expr: sum(rate(forensics_capture_success[5m])) / sum(rate(quarantine_actions_total[5m]))
+    
+    - alert: QuarantineFailureRate
+      expr: quarantine_success_rate < 0.95
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High quarantine failure rate"
+        description: "Quarantine success rate is below 95%"
+    
+    - alert: ForensicsCaptureFailing
+      expr: forensics_capture_success_rate < 0.90
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Forensics capture failing"
+        description: "Forensics capture success rate is below 90%"

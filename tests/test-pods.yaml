@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-no-scan
+  labels:
+    app: test-quarantine
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-pending-quarantine
+  labels:
+    app: test-quarantine
+    quarantine-status: pending
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-high-restarts
+  labels:
+    app: test-quarantine
+    security-scan: cleared
+spec:
+  containers:
+  - name: unstable-nginx
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "while true; do exit 1; done"]  # Force restarts
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-cleared
+  labels:
+    app: test-quarantine
+    security-scan: cleared
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"

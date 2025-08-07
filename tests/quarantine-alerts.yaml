@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: quarantine-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: quarantine.rules
+    rules:
+    - alert: QuarantineTriggered
+      expr: sum(increase(quarantine_actions_total[5m])) > 0
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Pod quarantine action triggered"
+        description: "{{ $value }} pods were quarantined in the last 5 minutes"
+
+    - alert: HighQuarantineRate
+      expr: sum(increase(quarantine_actions_total[1h])) > 10
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High rate of pod quarantines"
+        description: "More than 10 pods quarantined in the last hour"

@@ -1,0 +1,41 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-delay
+spec:
+  action: delay
+  mode: one
+  selector:
+    labelSelectors:
+      app: "test-quarantine"
+  delay:
+    latency: "10ms"
+    correlation: "100"
+    jitter: "0ms"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cpu-stress
+spec:
+  mode: one
+  selector:
+    labelSelectors:
+      app: "test-quarantine"
+  stressors:
+    cpu:
+      workers: 1
+      load: 50
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-kill
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    labelSelectors:
+      app: "test-quarantine"
+  scheduler:
+    cron: "@every 1m"

@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-cve-2023-1675
+  labels:
+    app: test-quarantine
+    test-type: cve
+spec:
+  containers:
+  - name: vulnerable-container
+    image: nginx:1.22.0  # Example vulnerable version
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+    env:
+    - name: SIMULATE_VULNERABILITY
+      value: "CVE-2023-1675"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-memory-leak
+  labels:
+    app: test-quarantine
+    test-type: resource-abuse
+spec:
+  containers:
+  - name: memory-leak
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - "while true; do array+=(1 2 3 4 5); sleep 1; done"  # Simulate memory leak
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-network-abuse
+  labels:
+    app: test-quarantine
+    test-type: network-abuse
+spec:
+  containers:
+  - name: network-abuse
+    image: nginx:latest
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - "while true; do dd if=/dev/zero of=/dev/null bs=1M count=100; done"  # Simulate high network usage

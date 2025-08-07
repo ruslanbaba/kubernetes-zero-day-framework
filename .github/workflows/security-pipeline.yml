@@ -1,0 +1,39 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Run Conftest
+      uses: instrumenta/conftest-action@master
+      with:
+        files: policies/*.yaml
+        policy: policy/
+
+    - name: Run OPA Tests
+      run: |
+        curl -L -o opa https://openpolicyagent.org/downloads/v0.42.0/opa_linux_amd64
+        chmod 755 ./opa
+        ./opa test policies/ --verbose
+
+    - name: Upload Security Results
+      uses: github/codeql-action/upload-sarif@v1
+      if: always()
+      with:
+        sarif_file: trivy-results.sarif

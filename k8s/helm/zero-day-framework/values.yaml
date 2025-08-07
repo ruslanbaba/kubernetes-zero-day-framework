@@ -1,0 +1,68 @@
+replicaCount: 1
+
+image:
+  repository: bitnami/kubectl
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: "pod-quarantine-sa"
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+grafana:
+  enabled: true
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+
+storage:
+  forensics:
+    size: 10Gi
+    storageClass: standard
+  logs:
+    size: 5Gi
+    storageClass: standard
+
+networkPolicies:
+  enabled: true
+  defaultDeny: true
+
+monitoring:
+  alertmanager:
+    enabled: true
+    slack:
+      enabled: true
+      channel: "#alerts"
+      # webhook URL should be set via secret
+      webhookUrl: ""
+
+scanning:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  
+quarantine:
+  thresholds:
+    restartCount: 5
+    memoryUsagePercent: 90
+    cpuUsagePercent: 80

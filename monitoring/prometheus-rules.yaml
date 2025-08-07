@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: security-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: kubernetes.rules
+    rules:
+    - alert: GatekeeperViolation
+      expr: increase(gatekeeper_violations_total[5m]) > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Gatekeeper policy violation detected"
+        description: "{{ $value }} policy violations in the last 5 minutes"
+
+    - alert: PodQuarantineFailure
+      expr: kube_job_status_failed{job="quarantine-pod"} > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Pod quarantine job failed"
+        description: "Quarantine job failed to isolate potentially compromised pod"
+
+    - alert: UnusualPodTermination
+      expr: rate(kube_pod_container_status_terminated_reason{reason!~"Completed|Error"}[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Unusual pod termination detected"
+        description: "Pod terminated unexpectedly, possible security incident"

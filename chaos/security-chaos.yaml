@@ -1,0 +1,29 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: network-partition-testing
+spec:
+  action: partition
+  mode: one
+  selector:
+    namespaces:
+      - production
+  direction: to
+  target:
+    selector:
+      namespaces:
+        - production
+    mode: one
+  duration: "10m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-failure-testing
+spec:
+  action: pod-failure
+  mode: one
+  selector:
+    namespaces:
+      - production
+  duration: "5m"

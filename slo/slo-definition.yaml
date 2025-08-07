@@ -1,0 +1,23 @@
+apiVersion: monitoring.googleapis.com/v1
+kind: ServiceLevelObjective
+metadata:
+  name: security-incident-response
+spec:
+  goal: 0.99
+  serviceLevelIndicator:
+    windowsBased:
+      windowPeriod: 3600s
+      goodTotalRatio:
+        totalServiceFilter: metric.type="custom.googleapis.com/security/incident_response"
+        goodServiceFilter: metric.type="custom.googleapis.com/security/incident_response" resource.type="k8s_container" metric.label.status="resolved"
+---
+apiVersion: monitoring.googleapis.com/v1
+kind: ServiceLevelObjective
+metadata:
+  name: mitigation-time
+spec:
+  goal: 0.95
+  serviceLevelIndicator:
+    latency:
+      threshold: 300s
+      metric: custom.googleapis.com/security/mitigation_time
