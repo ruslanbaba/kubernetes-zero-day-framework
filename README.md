@@ -17,7 +17,6 @@ A comprehensive framework for detecting, isolating, and mitigating zero-day vuln
 - [Monitoring & Alerting](#monitoring--alerting)
 - [Testing](#testing)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Architecture
 
