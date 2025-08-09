@@ -477,9 +477,6 @@ curl -k https://<controller-ip>:8080/metrics
 4. Push to the branch
 5. Create a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## References
 - [OPA/Gatekeeper](https://github.com/open-policy-agent/gatekeeper)
